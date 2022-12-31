@@ -29,7 +29,7 @@ type Config struct {
 	AppName          string        `default:""`
 }
 
-func (c *Config) valid() error {
+func (c *Config) Valid() error {
 	if !(c.MinConns <= c.MaxConns) {
 		return fmt.Errorf("MinConns must <= MaxConns, incorrect config: %s", c)
 	}
@@ -53,7 +53,7 @@ func (c *Config) String() string {
 func ConfigFromEnv() *Config {
 	config := &Config{}
 	envconfig.MustProcess(DefaultEnvPrefix, config)
-	if err := config.valid(); err != nil {
+	if err := config.Valid(); err != nil {
 		log.Fatal().Msgf("%s", err)
 	}
 	return config
@@ -62,7 +62,7 @@ func ConfigFromEnv() *Config {
 func ConfigFromEnvPrefix(prefix string) *Config {
 	config := &Config{}
 	envconfig.MustProcess(prefix, config)
-	if err := config.valid(); err != nil {
+	if err := config.Valid(); err != nil {
 		log.Fatal().Msgf("%s", err)
 	}
 	return config

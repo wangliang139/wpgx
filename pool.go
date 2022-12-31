@@ -90,7 +90,7 @@ type Pool struct {
 	wg     sync.WaitGroup
 }
 
-func NewRawPgxPool(ctx context.Context, config *Config) (*pgxpool.Pool, error) {
+func newRawPgxPool(ctx context.Context, config *Config) (*pgxpool.Pool, error) {
 	if config.MaxConns < HighQPSMaxOpenConns {
 		log.Warn().Msgf(
 			"WPgx pool config has MaxOpenConns = %d,"+
@@ -113,7 +113,10 @@ func NewRawPgxPool(ctx context.Context, config *Config) (*pgxpool.Pool, error) {
 }
 
 func NewPool(ctx context.Context, config *Config) (*Pool, error) {
-	pgxpool, err := NewRawPgxPool(ctx, config)
+	if err := config.Valid(); err != nil {
+		return nil, err
+	}
+	pgxpool, err := newRawPgxPool(ctx, config)
 	if err != nil {
 		return nil, err
 	}
@@ -195,4 +198,8 @@ func (p *Pool) Transact(ctx context.Context, txOptions pgx.TxOptions, fn TxFunc)
 		return nil, err
 	}
 	return resp, err
+}
+
+func (p *Pool) RawPool() *pgxpool.Pool {
+	return p.pool
 }

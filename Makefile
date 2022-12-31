@@ -21,7 +21,15 @@ test-stop-all:
 	make docker-postgres-stop
 
 test-cmd:
-	CGO_ENABLED=$(CGO_ENABLED) $(GO) test -p 1 . -test.v
+	export ENV=test && \
+	export POSTGRES_APPNAME=wpgx && \
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) test -p 1 ./... -test.v
+
+test-update-golden-cmd:
+	export ENV=test && \
+	export POSTGRES_APPNAME=wpgx && \
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) test -p 1 ./... -test.v -update
+
 
 test: test-start-all
 	make test-cmd && make test-stop-all || (make test-stop-all; exit 2)
