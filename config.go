@@ -11,14 +11,15 @@ import (
 const (
 	HighQPSMaxOpenConns = 100
 	DefaultEnvPrefix    = "postgres"
+	AppNameLengthMax    = 32
 )
 
 type Config struct {
-	Username         string        `default:"root"`
+	Username         string        `default:"postgres"`
 	Password         string        `default:"my-secret"`
 	Host             string        `default:"localhost"`
 	Port             int           `default:"5432"`
-	DBName           string        `default:"test_db"`
+	DBName           string        `default:"wpgx_test_db"`
 	MaxConns         int32         `default:"10"`
 	MinConns         int32         `default:"0"`
 	MaxConnLifetime  time.Duration `default:"6h"`
@@ -31,6 +32,9 @@ type Config struct {
 func (c *Config) valid() error {
 	if !(c.MinConns <= c.MaxConns) {
 		return fmt.Errorf("MinConns must <= MaxConns, incorrect config: %s", c)
+	}
+	if len(c.AppName) == 0 || len(c.AppName) > AppNameLengthMax {
+		return fmt.Errorf("Invalid AppName: %s", c)
 	}
 	return nil
 }
