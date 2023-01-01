@@ -12,11 +12,10 @@ import (
 type PostExecFunc = func() error
 
 // TxFunc is the body of a transaction.
-type TxFunc = func(Exec) (any, error)
+type TxFunc = func(WGConn) (any, error)
 
-// Exec most basic wrapped SQL query executor interface.
-// The name will be used by telemetry.
-type Exec interface {
+// WGConn is the abstraction over wrapped connections and transactions.
+type WGConn interface {
 	WQuery(
 		ctx context.Context, name string, unprepared string, args ...interface{}) (pgx.Rows, error)
 	WQueryRow(

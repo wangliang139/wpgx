@@ -12,7 +12,7 @@ type WConn struct {
 	p *Pool
 }
 
-var _ Exec = (*WConn)(nil)
+var _ WGConn = (*WConn)(nil)
 
 func (c *WConn) PostExec(fn PostExecFunc) error {
 	return fn()

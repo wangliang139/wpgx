@@ -25,7 +25,7 @@ type Doc struct {
 }
 
 type loaderDumper struct {
-	exec wpgx.Exec
+	exec wpgx.WGConn
 }
 
 func (m *loaderDumper) Dump() ([]byte, error) {

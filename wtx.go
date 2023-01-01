@@ -19,7 +19,7 @@ type WTx struct {
 	mutex         sync.Mutex
 }
 
-var _ Exec = (*WTx)(nil)
+var _ WGConn = (*WTx)(nil)
 
 func (t *WTx) runPostExecFuncs() {
 	var wg sync.WaitGroup
