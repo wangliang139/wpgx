@@ -159,7 +159,9 @@ func (p *Pool) Close() {
 	p.wg.Wait()
 
 	// unregister after all	go routines are closed.
-	p.stats.Unregister()
+	if p.stats != nil {
+		p.stats.Unregister()
+	}
 }
 
 func (p *Pool) Ping(ctx context.Context) error {
