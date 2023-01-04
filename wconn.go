@@ -37,6 +37,12 @@ func (c *WConn) WExec(ctx context.Context, name string, unprepared string, args 
 	return c.p.pool.Exec(ctx, unprepared, args...)
 }
 
+func (c *WConn) WCopyFrom(
+		ctx context.Context, name string, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error) {
+	defer c.p.stats.Observe(name, time.Now())()
+	return c.p.pool.CopyFrom(ctx, tableName, columnNames, rowSrc)
+}
+
 // pgx did the right thing: prepare should not be visible to a connection pool.
 // func (c *WConn) Prepare(ctx context.Context, query string) (pgconn.StatementDescription, error) {
 // 	return c.conn.Prepare(ctx, query)

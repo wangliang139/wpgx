@@ -24,6 +24,38 @@ type Doc struct {
 	Description json.RawMessage `json:"description"`
 }
 
+// iteratorForBulkInsert implements pgx.CopyFromSource.
+type iteratorForBulkInsert struct {
+	rows                 []Doc
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForBulkInsert) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForBulkInsert) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].Id,
+		r.rows[0].Rev,
+		r.rows[0].Content,
+		r.rows[0].CreatedAt,
+		r.rows[0].Description,
+	}, nil
+}
+
+func (r iteratorForBulkInsert) Err() error {
+	return nil
+}
+
 type loaderDumper struct {
 	exec wpgx.WGConn
 }
@@ -162,4 +194,41 @@ func (suite *metaTestSuite) TestQueryUseLoader() {
 	suite.Equal(float64(66.66), rev)
 	suite.Equal(int64(1000), createdAt.Unix())
 	suite.Equal(json.RawMessage(`{"github_url":"github.com/stumble/wpgx"}`), desc)
+}
+
+func (suite *metaTestSuite) TestCopyFromUseGolden() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	exec := suite.Pool.WConn()
+	dumper := &loaderDumper{exec: exec}
+	n, err := exec.WCopyFrom(ctx,
+		"CopyFrom", []string{"docs"},
+		[]string{"id", "rev", "content", "created_at", "description"},
+		&iteratorForBulkInsert{rows: []Doc{
+			{
+				Id: 1,
+				Rev: 0.1,
+				Content: "Alice",
+				CreatedAt: time.Unix(0, 1),
+				Description: json.RawMessage(`{}`),
+			},
+			{
+				Id: 2,
+				Rev: 0.2,
+				Content: "Bob",
+				CreatedAt: time.Unix(100, 0),
+				Description: json.RawMessage(`[]`),
+			},
+			{
+				Id: 3,
+				Rev: 0.3,
+				Content: "Chris",
+				CreatedAt: time.Unix(1000000, 100),
+				Description: json.RawMessage(`{"key":"value"}`),
+			},
+		}})
+	suite.Require().Nil(err)
+	suite.Equal(int64(3), n)
+
+	suite.Golden("docs", dumper)
 }

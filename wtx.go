@@ -62,6 +62,12 @@ func (t *WTx) WExec(ctx context.Context, name string, unprepared string, args ..
 	return t.tx.Exec(ctx, unprepared, args...)
 }
 
+func (t *WTx) WCopyFrom(
+		ctx context.Context, name string, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error) {
+	defer t.stats.Observe(name, time.Now())()
+	return t.tx.CopyFrom(ctx, tableName, columnNames, rowSrc)
+}
+
 func (t *WTx) Rollback(ctx context.Context) error {
 	return t.tx.Rollback(ctx)
 }
