@@ -12,7 +12,7 @@ import (
 type PostExecFunc = func() error
 
 // TxFunc is the body of a transaction.
-type TxFunc = func(WGConn) (any, error)
+type TxFunc = func(tx *WTx) (any, error)
 
 // WGConn is the abstraction over wrapped connections and transactions.
 type WGConn interface {
