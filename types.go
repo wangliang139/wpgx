@@ -12,7 +12,9 @@ import (
 type PostExecFunc = func() error
 
 // TxFunc is the body of a transaction.
-type TxFunc = func(tx *WTx) (any, error)
+// ctx must be used to generate proper tracing spans.
+// If not, you might see incorrect parallel spans.
+type TxFunc = func(ctx context.Context, tx *WTx) (any, error)
 
 // WGConn is the abstraction over wrapped connections and transactions.
 type WGConn interface {

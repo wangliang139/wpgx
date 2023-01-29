@@ -18,29 +18,52 @@ func (c *WConn) PostExec(fn PostExecFunc) error {
 	return fn()
 }
 
-func (c *WConn) WQuery(ctx context.Context, name string, unprepared string, args ...interface{}) (pgx.Rows, error) {
-	defer c.p.stats.Observe(name, time.Now())()
-	r, err := c.p.pool.Query(ctx, unprepared, args...)
-	if err != nil {
-		return r, err
+func (c *WConn) WQuery(ctx context.Context, name string, unprepared string, args ...interface{}) (r pgx.Rows, err error) {
+	if c.p.stats != nil {
+		defer c.p.stats.Observe(name, time.Now())()
 	}
-	return r, nil
+	if c.p.tracer != nil {
+		ctx = c.p.tracer.TraceStart(ctx, name)
+		defer c.p.tracer.TraceEnd(ctx, err)
+	}
+	r, err = c.p.pool.Query(ctx, unprepared, args...)
+	return
 }
 
 func (c *WConn) WQueryRow(ctx context.Context, name string, unprepared string, args ...interface{}) pgx.Row {
-	defer c.p.stats.Observe(name, time.Now())()
+	if c.p.stats != nil {
+		defer c.p.stats.Observe(name, time.Now())()
+	}
+	if c.p.tracer != nil {
+		ctx = c.p.tracer.TraceStart(ctx, name)
+		defer c.p.tracer.TraceEnd(ctx, nil)
+	}
 	return c.p.pool.QueryRow(ctx, unprepared, args...)
 }
 
-func (c *WConn) WExec(ctx context.Context, name string, unprepared string, args ...interface{}) (pgconn.CommandTag, error) {
-	defer c.p.stats.Observe(name, time.Now())()
-	return c.p.pool.Exec(ctx, unprepared, args...)
+func (c *WConn) WExec(ctx context.Context, name string, unprepared string, args ...interface{}) (cmd pgconn.CommandTag, err error) {
+	if c.p.stats != nil {
+		defer c.p.stats.Observe(name, time.Now())()
+	}
+	if c.p.tracer != nil {
+		ctx = c.p.tracer.TraceStart(ctx, name)
+		defer c.p.tracer.TraceEnd(ctx, err)
+	}
+	cmd, err = c.p.pool.Exec(ctx, unprepared, args...)
+	return
 }
 
 func (c *WConn) WCopyFrom(
-		ctx context.Context, name string, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error) {
-	defer c.p.stats.Observe(name, time.Now())()
-	return c.p.pool.CopyFrom(ctx, tableName, columnNames, rowSrc)
+	ctx context.Context, name string, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (n int64, err error) {
+	if c.p.stats != nil {
+		defer c.p.stats.Observe(name, time.Now())()
+	}
+	if c.p.tracer != nil {
+		ctx = c.p.tracer.TraceStart(ctx, name)
+		defer c.p.tracer.TraceEnd(ctx, err)
+	}
+	n, err = c.p.pool.CopyFrom(ctx, tableName, columnNames, rowSrc)
+	return
 }
 
 // pgx did the right thing: prepare should not be visible to a connection pool.

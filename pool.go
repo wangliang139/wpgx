@@ -7,83 +7,20 @@ import (
 	"sync"
 	"time"
 
-	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 )
 
-type metricSet struct {
-	ConnPool *prometheus.GaugeVec
-	Request  *prometheus.CounterVec
-	Latency  *prometheus.HistogramVec
-}
-
-var (
-	labels        = []string{"name"}
-	latencyBucket = []float64{
-		4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192}
-	connPoolUpdateInterval = 1 * time.Second
+const (
+	transactionTraceSpanName = "$TX$"
 )
-
-func newMetricSet(appName string) *metricSet {
-	return &metricSet{
-		ConnPool: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: fmt.Sprintf("%s_wpgx_conn_pool", appName),
-				Help: "",
-			}, labels),
-		Request: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: fmt.Sprintf("%s_wpgx_request_total", appName),
-				Help: "how many CRUD operations sent to DB.",
-			}, labels),
-		Latency: prometheus.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Name:    fmt.Sprintf("%s_wpgx_latency_milliseconds", appName),
-				Help:    "CRUD latency in milliseconds",
-				Buckets: latencyBucket,
-			}, labels),
-	}
-}
-func (m *metricSet) Register() {
-	err := prometheus.Register(m.ConnPool)
-	if err != nil {
-		log.Err(err).Msgf("failed to register Prometheus ConnPool gauges")
-	}
-	err = prometheus.Register(m.Request)
-	if err != nil {
-		log.Err(err).Msgf("failed to register prometheus Request counters")
-	}
-	err = prometheus.Register(m.Latency)
-	if err != nil {
-		log.Err(err).Msgf("failed to register Prometheus Latency histogram")
-	}
-}
-
-func (m *metricSet) Unregister() {
-	prometheus.Unregister(m.ConnPool)
-	prometheus.Unregister(m.Request)
-	prometheus.Unregister(m.Latency)
-}
-
-func (s *metricSet) Observe(name string, startedAt time.Time) func() {
-	return func() {
-		if s.Request != nil {
-			s.Request.WithLabelValues(name).Inc()
-		}
-		if s.Latency != nil {
-			s.Latency.WithLabelValues(name).Observe(
-				float64(time.Since(startedAt).Milliseconds()))
-		}
-	}
-}
 
 // Pool is the wrapped pgx pool that registers Prometheus.
 type Pool struct {
-	pool  *pgxpool.Pool
-	stats *metricSet
+	pool   *pgxpool.Pool
+	stats  *metricSet
+	tracer *tracer
 
 	// graceful shutdown utilities
 	ctx    context.Context
@@ -110,9 +47,6 @@ func newRawPgxPool(ctx context.Context, config *Config) (*pgxpool.Pool, error) {
 	pgConfig.MinConns = config.MinConns
 	pgConfig.MaxConnLifetime = config.MaxConnLifetime
 	pgConfig.MaxConnIdleTime = config.MaxConnIdleTime
-	if config.EnableTracing {
-		pgConfig.ConnConfig.Tracer = otelpgx.NewTracer(otelpgx.WithIncludeQueryParameters())
-	}
 	return pgxpool.NewWithConfig(ctx, pgConfig)
 }
 
@@ -126,6 +60,9 @@ func NewPool(ctx context.Context, config *Config) (*Pool, error) {
 	}
 	pool := &Pool{
 		pool: pgxpool,
+	}
+	if config.EnableTracing {
+		pool.tracer = newTracer()
 	}
 	pool.ctx, pool.cancel = context.WithCancel(context.Background())
 	if config.EnablePrometheus {
@@ -178,16 +115,21 @@ func (p *Pool) WConn() *WConn {
 
 // Transact is a wrapper of pgx.Transaction
 // It acquires a connection from the Pool and starts a transaction with pgx.TxOptions determining the transaction mode.
-// The context will be used when executing the transaction control statements (BEGIN, ROLLBACK, and COMMIT)
-// but does not otherwise affect the execution of fn.
+// The context will be used when executing the transaction control statements (BEGIN, ROLLBACK, and COMMIT),
+// and when if tracing is enabled, the context with transaction span will be passed down to @p fn.
 func (p *Pool) Transact(ctx context.Context, txOptions pgx.TxOptions, fn TxFunc) (resp interface{}, err error) {
-	pgxTx, e := p.pool.BeginTx(ctx, txOptions)
-	if e != nil {
-		return nil, e
+	if p.tracer != nil {
+		ctx = p.tracer.TraceStart(ctx, transactionTraceSpanName)
+		defer p.tracer.TraceEnd(ctx, err)
+	}
+	pgxTx, err := p.pool.BeginTx(ctx, txOptions)
+	if err != nil {
+		return nil, err
 	}
 	tx := &WTx{
-		tx:    pgxTx,
-		stats: p.stats,
+		tx:     pgxTx,
+		stats:  p.stats,
+		tracer: p.tracer,
 	}
 	defer func() {
 		rollbackErr := tx.Rollback(ctx)
@@ -195,7 +137,7 @@ func (p *Pool) Transact(ctx context.Context, txOptions pgx.TxOptions, fn TxFunc)
 			err = rollbackErr
 		}
 	}()
-	resp, err = fn(tx)
+	resp, err = fn(ctx, tx)
 	if err != nil {
 		return nil, err
 	}

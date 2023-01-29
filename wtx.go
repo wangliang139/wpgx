@@ -15,6 +15,7 @@ import (
 type WTx struct {
 	tx            pgx.Tx
 	stats         *metricSet
+	tracer        *tracer
 	postExecFuncs []PostExecFunc
 	mutex         sync.Mutex
 }
@@ -43,29 +44,52 @@ func (t *WTx) PostExec(f PostExecFunc) error {
 	return nil
 }
 
-func (t *WTx) WQuery(ctx context.Context, name string, unprepared string, args ...interface{}) (pgx.Rows, error) {
-	defer t.stats.Observe(name, time.Now())()
-	r, err := t.tx.Query(ctx, unprepared, args...)
-	if err != nil {
-		return r, err
+func (t *WTx) WQuery(ctx context.Context, name string, unprepared string, args ...interface{}) (rows pgx.Rows, err error) {
+	if t.stats != nil {
+		defer t.stats.Observe(name, time.Now())()
 	}
-	return r, nil
+	if t.tracer != nil {
+		ctx = t.tracer.TraceStart(ctx, name)
+		defer t.tracer.TraceEnd(ctx, err)
+	}
+	rows, err = t.tx.Query(ctx, unprepared, args...)
+	return
 }
 
 func (t *WTx) WQueryRow(ctx context.Context, name string, unprepared string, args ...interface{}) pgx.Row {
-	defer t.stats.Observe(name, time.Now())()
+	if t.stats != nil {
+		defer t.stats.Observe(name, time.Now())()
+	}
+	if t.tracer != nil {
+		ctx = t.tracer.TraceStart(ctx, name)
+		defer t.tracer.TraceEnd(ctx, nil)
+	}
 	return t.tx.QueryRow(ctx, unprepared, args...)
 }
 
-func (t *WTx) WExec(ctx context.Context, name string, unprepared string, args ...interface{}) (pgconn.CommandTag, error) {
-	defer t.stats.Observe(name, time.Now())()
-	return t.tx.Exec(ctx, unprepared, args...)
+func (t *WTx) WExec(ctx context.Context, name string, unprepared string, args ...interface{}) (cmd pgconn.CommandTag, err error) {
+	if t.stats != nil {
+		defer t.stats.Observe(name, time.Now())()
+	}
+	if t.tracer != nil {
+		ctx = t.tracer.TraceStart(ctx, name)
+		defer t.tracer.TraceEnd(ctx, err)
+	}
+	cmd, err = t.tx.Exec(ctx, unprepared, args...)
+	return
 }
 
 func (t *WTx) WCopyFrom(
-		ctx context.Context, name string, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error) {
-	defer t.stats.Observe(name, time.Now())()
-	return t.tx.CopyFrom(ctx, tableName, columnNames, rowSrc)
+	ctx context.Context, name string, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (n int64, err error) {
+	if t.stats != nil {
+		defer t.stats.Observe(name, time.Now())()
+	}
+	if t.tracer != nil {
+		ctx = t.tracer.TraceStart(ctx, name)
+		defer t.tracer.TraceEnd(ctx, err)
+	}
+	n, err = t.tx.CopyFrom(ctx, tableName, columnNames, rowSrc)
+	return
 }
 
 func (t *WTx) Rollback(ctx context.Context) error {

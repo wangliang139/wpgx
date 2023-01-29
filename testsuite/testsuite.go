@@ -4,7 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -107,7 +107,7 @@ func (suite *PgxTestSuite) loadFile(file string) []byte {
 	f, err := os.Open(file)
 	suite.Require().NoError(err)
 	defer f.Close()
-	data, err := ioutil.ReadAll(f)
+	data, err := io.ReadAll(f)
 	suite.Require().NoError(err)
 	return data
 }
