@@ -30,7 +30,7 @@ const (
 
 var update = flag.Bool("update", false, "update .golden files")
 
-type PgxTestSuite struct {
+type WPgxTestSuite struct {
 	suite.Suite
 	Testdb string
 	Tables []string
@@ -38,21 +38,21 @@ type PgxTestSuite struct {
 	Pool   *wpgx.Pool
 }
 
-// NewPgxTestSuiteFromEnv @p db is the name of test db and tables are table creation
+// NewWPgxTestSuiteFromEnv @p db is the name of test db and tables are table creation
 // SQL statements. DB will be created, so does tables, on SetupTest.
 // If you pass different @p db for suites in different packages, you can test them in parallel.
-func NewPgxTestSuiteFromEnv(db string, tables []string) *PgxTestSuite {
+func NewWPgxTestSuiteFromEnv(db string, tables []string) *WPgxTestSuite {
 	config := wpgx.ConfigFromEnv()
 	config.DBName = db
-	return NewPgxTestSuiteFromConfig(config, db, tables)
+	return NewWPgxTestSuiteFromConfig(config, db, tables)
 }
 
-// NewPgxTestSuiteFromConfig connect to PostgreSQL Server according to @p config,
+// NewWPgxTestSuiteFromConfig connect to PostgreSQL Server according to @p config,
 // @p db is the name of test db and tables are table creation
 // SQL statements. DB will be created, so does tables, on SetupTest.
 // If you pass different @p db for suites in different packages, you can test them in parallel.
-func NewPgxTestSuiteFromConfig(config *wpgx.Config, db string, tables []string) *PgxTestSuite {
-	return &PgxTestSuite{
+func NewWPgxTestSuiteFromConfig(config *wpgx.Config, db string, tables []string) *WPgxTestSuite {
+	return &WPgxTestSuite{
 		Testdb: db,
 		Tables: tables,
 		Config: config,
@@ -60,13 +60,13 @@ func NewPgxTestSuiteFromConfig(config *wpgx.Config, db string, tables []string) 
 }
 
 // returns a raw *pgx.Pool
-func (suite *PgxTestSuite) GetPool() *pgxpool.Pool {
+func (suite *WPgxTestSuite) GetRawPool() *pgxpool.Pool {
 	return suite.Pool.RawPool()
 }
 
 // setup the database to a clean state: tables have been created according to the
 // schema, empty.
-func (suite *PgxTestSuite) SetupTest() {
+func (suite *WPgxTestSuite) SetupTest() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -95,14 +95,14 @@ func (suite *PgxTestSuite) SetupTest() {
 	}
 }
 
-func (suite *PgxTestSuite) TearDownTest() {
+func (suite *WPgxTestSuite) TearDownTest() {
 	if suite.Pool != nil {
 		suite.Pool.Close()
 	}
 }
 
 // load bytes from file
-func (suite *PgxTestSuite) loadFile(file string) []byte {
+func (suite *WPgxTestSuite) loadFile(file string) []byte {
 	suite.Require().FileExists(file)
 	f, err := os.Open(file)
 	suite.Require().NoError(err)
@@ -115,7 +115,7 @@ func (suite *PgxTestSuite) loadFile(file string) []byte {
 // LoadState load state from the file to DB.
 // For example LoadState(ctx, "sample1.input.json") will load (insert) from
 // "testdata/sample1.input.json" to table
-func (suite *PgxTestSuite) LoadState(filename string, loader Loader) {
+func (suite *WPgxTestSuite) LoadState(filename string, loader Loader) {
 	input := testDirFilePath(filename)
 	data := suite.loadFile(input)
 	suite.Require().NoError(loader.Load(data))
@@ -124,7 +124,7 @@ func (suite *PgxTestSuite) LoadState(filename string, loader Loader) {
 // Dumpstate dump state to the file.
 // For example DumpState(ctx, "sample1.golden.json") will dump (insert) bytes from
 // dumper.dump() to "testdata/sample1.golden.json".
-func (suite *PgxTestSuite) DumpState(filename string, dumper Dumper) {
+func (suite *WPgxTestSuite) DumpState(filename string, dumper Dumper) {
 	outputFile := testDirFilePath(filename)
 	dir, _ := filepath.Split(outputFile)
 	suite.Require().NoError(ensureDir(dir))
@@ -138,7 +138,7 @@ func (suite *PgxTestSuite) DumpState(filename string, dumper Dumper) {
 	suite.Require().NoError(f.Sync())
 }
 
-func (suite *PgxTestSuite) Golden(dbName string, dumper Dumper) {
+func (suite *WPgxTestSuite) Golden(dbName string, dumper Dumper) {
 	goldenFile := fmt.Sprintf("%s.%s.golden", suite.T().Name(), dbName)
 	if *update {
 		suite.DumpState(goldenFile, dumper)

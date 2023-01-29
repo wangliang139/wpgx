@@ -13,7 +13,7 @@ import (
 )
 
 type metaTestSuite struct {
-	*sqlsuite.PgxTestSuite
+	*sqlsuite.WPgxTestSuite
 }
 
 type Doc struct {
@@ -105,7 +105,7 @@ func (m *loaderDumper) Load(data []byte) error {
 
 func NewMetaTestSuite() *metaTestSuite {
 	return &metaTestSuite{
-		PgxTestSuite: sqlsuite.NewPgxTestSuiteFromEnv("metatestdb", []string{
+		WPgxTestSuite: sqlsuite.NewWPgxTestSuiteFromEnv("metatestdb", []string{
 			`CREATE TABLE IF NOT EXISTS docs (
                id          INT NOT NULL,
                rev         DOUBLE PRECISION NOT NULL,
@@ -123,7 +123,7 @@ func TestMetaTestSuite(t *testing.T) {
 }
 
 func (suite *metaTestSuite) SetupTest() {
-	suite.PgxTestSuite.SetupTest()
+	suite.WPgxTestSuite.SetupTest()
 }
 
 func (suite *metaTestSuite) TestInsertQuery() {
@@ -165,7 +165,7 @@ func (suite *metaTestSuite) TestInsertUseGolden() {
 	n := rst.RowsAffected()
 	suite.Equal(int64(1), n)
 	dumper := &loaderDumper{exec: exec}
-	suite.PgxTestSuite.Golden("docs", dumper)
+	suite.WPgxTestSuite.Golden("docs", dumper)
 }
 
 func (suite *metaTestSuite) TestQueryUseLoader() {
@@ -175,7 +175,7 @@ func (suite *metaTestSuite) TestQueryUseLoader() {
 
 	// load state to db from input
 	loader := &loaderDumper{exec: exec}
-	suite.PgxTestSuite.LoadState("TestMetaTestSuite/TestQueryUseLoader.docs.json", loader)
+	suite.WPgxTestSuite.LoadState("TestMetaTestSuite/TestQueryUseLoader.docs.json", loader)
 
 	rows, err := exec.WQuery(ctx,
 		"select_all",
