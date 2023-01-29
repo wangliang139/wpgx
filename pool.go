@@ -36,7 +36,7 @@ func newMetricSet(appName string) *metricSet {
 			}, labels),
 		Request: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name: fmt.Sprintf("%s_request_total", appName),
+				Name: fmt.Sprintf("%s_wpgx_request_total", appName),
 				Help: "how many CRUD operations sent to DB.",
 			}, labels),
 		Latency: prometheus.NewHistogramVec(
