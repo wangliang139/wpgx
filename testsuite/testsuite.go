@@ -123,7 +123,7 @@ func (suite *WPgxTestSuite) LoadState(filename string, loader Loader) {
 
 // Dumpstate dump state to the file.
 // For example DumpState(ctx, "sample1.golden.json") will dump (insert) bytes from
-// dumper.dump() to "testdata/sample1.golden.json".
+// dumper.dump() to "testdata/${suitename}/${filename}".
 func (suite *WPgxTestSuite) DumpState(filename string, dumper Dumper) {
 	outputFile := testDirFilePath(filename)
 	dir, _ := filepath.Split(outputFile)
@@ -138,8 +138,8 @@ func (suite *WPgxTestSuite) DumpState(filename string, dumper Dumper) {
 	suite.Require().NoError(f.Sync())
 }
 
-func (suite *WPgxTestSuite) Golden(dbName string, dumper Dumper) {
-	goldenFile := fmt.Sprintf("%s.%s.golden", suite.T().Name(), dbName)
+func (suite *WPgxTestSuite) Golden(tableName string, dumper Dumper) {
+	goldenFile := fmt.Sprintf("%s.%s.golden", suite.T().Name(), tableName)
 	if *update {
 		suite.DumpState(goldenFile, dumper)
 		return
