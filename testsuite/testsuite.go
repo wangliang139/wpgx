@@ -75,13 +75,17 @@ func (suite *WPgxTestSuite) SetupTest() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	if suite.Pool != nil {
+		suite.Pool.Close()
+	}
+
 	// create DB
 	conn, err := pgx.Connect(context.Background(), fmt.Sprintf(
 		"postgres://%s:%s@%s:%d",
 		suite.Config.Username, suite.Config.Password, suite.Config.Host, suite.Config.Port))
 	suite.Require().NoError(err)
 	defer conn.Close(context.Background())
-	_, err = conn.Exec(ctx, fmt.Sprintf("DROP DATABASE IF EXISTS %s;", suite.Testdb))
+	_, err = conn.Exec(ctx, fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE);", suite.Testdb))
 	suite.Require().NoError(err)
 	_, err = conn.Exec(ctx, fmt.Sprintf("CREATE DATABASE %s;", suite.Testdb))
 	suite.Require().NoError(err)
