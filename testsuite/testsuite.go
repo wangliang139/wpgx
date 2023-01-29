@@ -59,9 +59,14 @@ func NewWPgxTestSuiteFromConfig(config *wpgx.Config, db string, tables []string)
 	}
 }
 
-// returns a raw *pgx.Pool
+// GetRawPool returns a raw *pgx.Pool.
 func (suite *WPgxTestSuite) GetRawPool() *pgxpool.Pool {
 	return suite.Pool.RawPool()
+}
+
+// GetPool returns the *wpgx.Pool.
+func (suite *WPgxTestSuite) GetPool() *wpgx.Pool {
+	return suite.Pool
 }
 
 // setup the database to a clean state: tables have been created according to the
