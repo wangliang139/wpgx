@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/nsf/jsondiff"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/stumble/wpgx"
@@ -156,7 +157,13 @@ func (suite *WPgxTestSuite) Golden(tableName string, dumper Dumper) {
 	golden := suite.loadFile(testDirFilePath(goldenFile))
 	state, err := dumper.Dump()
 	suite.Require().NoError(err)
-	suite.Equal(golden, state)
+	suite.Equal(string(golden), string(state), diffOutputJSON(golden, state))
+}
+
+func diffOutputJSON(a []byte, b []byte) string {
+	diffOpts := jsondiff.DefaultConsoleOptions()
+	_, diffstr := jsondiff.Compare(a, b, &diffOpts)
+	return diffstr
 }
 
 func testDirFilePath(filename string) string {
