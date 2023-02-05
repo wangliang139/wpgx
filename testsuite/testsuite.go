@@ -101,7 +101,7 @@ func (suite *WPgxTestSuite) SetupTest() {
 	for _, v := range suite.Tables {
 		exec := suite.Pool.WConn()
 		_, err := exec.WExec(ctx, "make_table", v)
-		suite.Require().NoError(err)
+		suite.Require().NoError(err, "Failed to create table when executing: %s", v)
 	}
 }
 
