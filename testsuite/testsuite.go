@@ -84,24 +84,24 @@ func (suite *WPgxTestSuite) SetupTest() {
 	conn, err := pgx.Connect(context.Background(), fmt.Sprintf(
 		"postgres://%s:%s@%s:%d",
 		suite.Config.Username, suite.Config.Password, suite.Config.Host, suite.Config.Port))
-	suite.Require().NoError(err)
+	suite.Require().NoError(err, "failed to connect to pg")
 	defer conn.Close(context.Background())
 	_, err = conn.Exec(ctx, fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE);", suite.Testdb))
-	suite.Require().NoError(err)
+	suite.Require().NoError(err, "failed to drop DB")
 	_, err = conn.Exec(ctx, fmt.Sprintf("CREATE DATABASE %s;", suite.Testdb))
-	suite.Require().NoError(err)
+	suite.Require().NoError(err, "failed to create DB")
 
 	// create manager
 	pool, err := wpgx.NewPool(context.Background(), suite.Config)
-	suite.Require().NoError(err)
+	suite.Require().NoError(err, "wgpx NewPool failed")
 	suite.Pool = pool
-	suite.Require().NoError(suite.Pool.Ping(context.Background()))
+	suite.Require().NoError(suite.Pool.Ping(context.Background()), "wpgx ping failed")
 
 	// create tables
 	for _, v := range suite.Tables {
 		exec := suite.Pool.WConn()
 		_, err := exec.WExec(ctx, "make_table", v)
-		suite.Require().NoError(err, "Failed to create table when executing: %s", v)
+		suite.Require().NoError(err, "failed to create table when executing: %s", v)
 	}
 }
 
@@ -115,10 +115,10 @@ func (suite *WPgxTestSuite) TearDownTest() {
 func (suite *WPgxTestSuite) loadFile(file string) []byte {
 	suite.Require().FileExists(file)
 	f, err := os.Open(file)
-	suite.Require().NoError(err)
+	suite.Require().NoError(err, "cannot open %s", file)
 	defer f.Close()
 	data, err := io.ReadAll(f)
-	suite.Require().NoError(err)
+	suite.Require().NoError(err, "ReadAll on file failed: %s", file)
 	return data
 }
 
@@ -128,21 +128,21 @@ func (suite *WPgxTestSuite) loadFile(file string) []byte {
 func (suite *WPgxTestSuite) LoadState(filename string, loader Loader) {
 	input := testDirFilePath(filename)
 	data := suite.loadFile(input)
-	suite.Require().NoError(loader.Load(data))
+	suite.Require().NoError(loader.Load(data), "LoadState failed: %s", filename)
 }
 
-// Dumpstate dump state to the file.
+// DumpState dump state to the file.
 // For example DumpState(ctx, "sample1.golden.json") will dump (insert) bytes from
 // dumper.dump() to "testdata/${suitename}/${filename}".
 func (suite *WPgxTestSuite) DumpState(filename string, dumper Dumper) {
 	outputFile := testDirFilePath(filename)
 	dir, _ := filepath.Split(outputFile)
-	suite.Require().NoError(ensureDir(dir))
+	suite.Require().NoError(ensureDir(dir), "ensure(Dir) failed: %s", dir)
 	f, err := os.Create(outputFile)
-	suite.Require().NoError(err)
+	suite.Require().NoError(err, "create file failed: %s", outputFile)
 	defer f.Close()
 	bytes, err := dumper.Dump()
-	suite.Require().NoError(err)
+	suite.Require().NoError(err, "Dump failed")
 	_, err = f.Write(bytes)
 	suite.Require().NoError(err)
 	suite.Require().NoError(f.Sync())
