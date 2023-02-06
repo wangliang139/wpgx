@@ -175,7 +175,7 @@ func (suite *metaTestSuite) TestQueryUseLoader() {
 
 	// load state to db from input
 	loader := &loaderDumper{exec: exec}
-	suite.WPgxTestSuite.LoadState("TestMetaTestSuite/TestQueryUseLoader.docs.json", loader)
+	suite.WPgxTestSuite.LoadState("TestQueryUseLoader.docs.json", loader)
 
 	rows, err := exec.WQuery(ctx,
 		"select_all",
@@ -193,6 +193,44 @@ func (suite *metaTestSuite) TestQueryUseLoader() {
 	suite.Equal("content read from file", content)
 	suite.Equal(float64(66.66), rev)
 	suite.Equal(int64(1000), createdAt.Unix())
+	suite.Equal(json.RawMessage(`{"github_url":"github.com/stumble/wpgx"}`), desc)
+}
+
+func (suite *metaTestSuite) TestQueryUseLoadTemplate() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	exec := suite.Pool.WConn()
+
+	// load state to db from input
+	now := time.Now()
+	loader := &loaderDumper{exec: exec}
+	suite.WPgxTestSuite.LoadStateTmpl(
+		"TestQueryUseLoaderTemplate.docs.json.tmpl", loader, struct {
+			Rev       float64
+			CreatedAt string
+			GithubURL string
+		}{
+			Rev:       66.66,
+			CreatedAt: now.UTC().Format(time.RFC3339),
+			GithubURL: "github.com/stumble/wpgx",
+		})
+
+	rows, err := exec.WQuery(ctx,
+		"select_all",
+		"SELECT content, rev, created_at, description FROM docs WHERE id = $1", 33)
+	suite.Nil(err)
+	defer rows.Close()
+
+	var content string
+	var rev float64
+	var createdAt time.Time
+	var desc json.RawMessage
+	suite.True(rows.Next())
+	err = rows.Scan(&content, &rev, &createdAt, &desc)
+	suite.Nil(err)
+	suite.Equal("content read from file", content)
+	suite.Equal(float64(66.66), rev)
+	suite.Equal(now.Unix(), createdAt.Unix())
 	suite.Equal(json.RawMessage(`{"github_url":"github.com/stumble/wpgx"}`), desc)
 }
 

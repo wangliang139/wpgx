@@ -1,12 +1,14 @@
 package testsuite
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"text/template"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -129,6 +131,23 @@ func (suite *WPgxTestSuite) LoadState(filename string, loader Loader) {
 	input := testDirFilePath(filename)
 	data := suite.loadFile(input)
 	suite.Require().NoError(loader.Load(data), "LoadState failed: %s", filename)
+}
+
+// LoadStateTmpl load state go-template from the file to DB.
+// For example,
+// data := struct{ID int64}{ID:1}
+// LoadState(ctx, "sample1.input.json.tmpl", data)
+// will load (insert) from "testdata/sample1.input.json.tmpl", execute it with @p data
+// and use loader to populate the table.
+func (suite *WPgxTestSuite) LoadStateTmpl(filename string, loader Loader, templateData any) {
+	inputFile := testDirFilePath(filename)
+	tmplData := suite.loadFile(inputFile)
+	tmpl, err := template.New(inputFile).Parse(string(tmplData))
+	suite.Require().NoError(err, "LoadStateTemplate failed to parse template: %s", filename)
+	var data bytes.Buffer
+	suite.Require().NoError(tmpl.Execute(&data, templateData),
+		"LoadStateTemplate failed to execute template: %s, %+v", filename, templateData)
+	suite.Require().NoError(loader.Load(data.Bytes()), "LoadStateT failed to use loader: %s", filename)
 }
 
 // DumpState dump state to the file.
