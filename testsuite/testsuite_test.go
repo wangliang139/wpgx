@@ -168,6 +168,23 @@ func (suite *metaTestSuite) TestInsertUseGolden() {
 	suite.WPgxTestSuite.Golden("docs", dumper)
 }
 
+func (suite *metaTestSuite) TestGoldenVarJSON() {
+	v := struct {
+		A string  `json:"a"`
+		B int64   `json:"b"`
+		C []byte  `json:"c"`
+		D float64 `json:"d"`
+		F bool    `json:"f"`
+	}{
+		A: "str",
+		B: 666,
+		C: []byte("xxxx"),
+		D: 1.11,
+		F: true,
+	}
+	suite.GoldenVarJSON("testvar", v)
+}
+
 func (suite *metaTestSuite) TestQueryUseLoader() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

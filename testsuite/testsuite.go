@@ -3,6 +3,7 @@ package testsuite
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -150,23 +151,30 @@ func (suite *WPgxTestSuite) LoadStateTmpl(filename string, loader Loader, templa
 	suite.Require().NoError(loader.Load(data.Bytes()), "LoadStateT failed to use loader: %s", filename)
 }
 
-// DumpState dump state to the file.
-// For example DumpState(ctx, "sample1.golden.json") will dump (insert) bytes from
-// dumper.dump() to "testdata/${suitename}/${filename}".
-func (suite *WPgxTestSuite) DumpState(filename string, dumper Dumper) {
+func (suite *WPgxTestSuite) writeFile(filename string, data []byte) {
 	outputFile := testDirFilePath(filename)
 	dir, _ := filepath.Split(outputFile)
 	suite.Require().NoError(ensureDir(dir), "ensure(Dir) failed: %s", dir)
 	f, err := os.Create(outputFile)
 	suite.Require().NoError(err, "create file failed: %s", outputFile)
 	defer f.Close()
-	bytes, err := dumper.Dump()
-	suite.Require().NoError(err, "Dump failed")
-	_, err = f.Write(bytes)
-	suite.Require().NoError(err)
+	_, err = f.Write(data)
+	suite.Require().NoError(err, "Failed to dump to file: %s", filename)
 	suite.Require().NoError(f.Sync())
 }
 
+// DumpState dump state to the file.
+// For example DumpState(ctx, "sample1.golden.json") will dump (insert) bytes from
+// dumper.dump() to "testdata/${suitename}/${filename}".
+func (suite *WPgxTestSuite) DumpState(filename string, dumper Dumper) {
+	bytes, err := dumper.Dump()
+	suite.Require().NoError(err, "Failed to dump: %s", filename)
+	suite.writeFile(filename, bytes)
+}
+
+// Golden compares db state dumped by @p dumper with the golden file
+// {TestName}.{tableName}.golden. For the first time, you can run
+// `go test -update` to automatically generate the golden file.
 func (suite *WPgxTestSuite) Golden(tableName string, dumper Dumper) {
 	goldenFile := fmt.Sprintf("%s.%s.golden", suite.T().Name(), tableName)
 	if *update {
@@ -175,8 +183,24 @@ func (suite *WPgxTestSuite) Golden(tableName string, dumper Dumper) {
 	}
 	golden := suite.loadFile(testDirFilePath(goldenFile))
 	state, err := dumper.Dump()
-	suite.Require().NoError(err)
+	suite.Require().NoError(err, "Failed to dump: %s", tableName)
 	suite.Equal(string(golden), string(state), diffOutputJSON(golden, state))
+}
+
+// GoldenVarJSON compares the JSON string representation of @p v
+// with @p varName.golden file with the test case name as prefix:
+// {TestName}.{varName}.var.golden. For the first time, you can run
+// `go test -update` to automatically generate the golden file.
+func (suite *WPgxTestSuite) GoldenVarJSON(varName string, v any) {
+	bs, err := json.MarshalIndent(v, "", "  ")
+	suite.Require().NoError(err, "Failed to JSON marshal: %s", varName)
+	goldenFile := fmt.Sprintf("%s.%s.var.golden", suite.T().Name(), varName)
+	if *update {
+		suite.writeFile(goldenFile, bs)
+		return
+	}
+	golden := suite.loadFile(testDirFilePath(goldenFile))
+	suite.Equal(string(golden), string(bs), diffOutputJSON(golden, bs))
 }
 
 func diffOutputJSON(a []byte, b []byte) string {
