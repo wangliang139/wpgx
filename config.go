@@ -20,13 +20,13 @@ type Config struct {
 	Host             string        `default:"localhost"`
 	Port             int           `default:"5432"`
 	DBName           string        `default:"wpgx_test_db"`
-	MaxConns         int32         `default:"10"`
+	MaxConns         int32         `default:"100"`
 	MinConns         int32         `default:"0"`
 	MaxConnLifetime  time.Duration `default:"6h"`
-	MaxConnIdleTime  time.Duration `default:"30m"`
+	MaxConnIdleTime  time.Duration `default:"1m"`
 	EnablePrometheus bool          `default:"true"`
 	EnableTracing    bool          `default:"true"`
-	AppName          string        `default:""`
+	AppName          string        `required:"true"`
 }
 
 func (c *Config) Valid() error {
