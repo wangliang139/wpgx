@@ -9,6 +9,7 @@ POSTGRES_PORT=5432
 
 docker-postgres-start:
 	docker run -d --name $(POSTGRES_DOCKER_NAME) -e POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) -e POSTGRES_DB=$(POSTGRES_DB) -p $(POSTGRES_PORT):5432 postgres:14.5
+	sleep 2
 
 docker-postgres-stop:
 	docker stop $(POSTGRES_DOCKER_NAME)
@@ -23,12 +24,12 @@ test-stop-all:
 test-cmd:
 	export ENV=test && \
 	export POSTGRES_APPNAME=wpgx && \
-	CGO_ENABLED=$(CGO_ENABLED) $(GO) test -p 1 ./... -test.v
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) test -count=1 -p 1 ./... -test.v
 
 test-update-golden-cmd:
 	export ENV=test && \
 	export POSTGRES_APPNAME=wpgx && \
-	CGO_ENABLED=$(CGO_ENABLED) $(GO) test -p 1 ./... -test.v -update
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) test -count=1 -p 1 ./... -test.v -update
 
 
 test: test-start-all
