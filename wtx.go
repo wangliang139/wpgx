@@ -46,7 +46,7 @@ func (t *WTx) PostExec(f PostExecFunc) error {
 
 func (t *WTx) WQuery(ctx context.Context, name string, unprepared string, args ...interface{}) (rows pgx.Rows, err error) {
 	if t.stats != nil {
-		defer t.stats.Observe(name, time.Now())()
+		defer t.stats.MakeObserver(name, time.Now())()
 	}
 	if t.tracer != nil {
 		ctx = t.tracer.TraceStart(ctx, name)
@@ -58,7 +58,7 @@ func (t *WTx) WQuery(ctx context.Context, name string, unprepared string, args .
 
 func (t *WTx) WQueryRow(ctx context.Context, name string, unprepared string, args ...interface{}) pgx.Row {
 	if t.stats != nil {
-		defer t.stats.Observe(name, time.Now())()
+		defer t.stats.MakeObserver(name, time.Now())()
 	}
 	if t.tracer != nil {
 		ctx = t.tracer.TraceStart(ctx, name)
@@ -69,7 +69,7 @@ func (t *WTx) WQueryRow(ctx context.Context, name string, unprepared string, arg
 
 func (t *WTx) WExec(ctx context.Context, name string, unprepared string, args ...interface{}) (cmd pgconn.CommandTag, err error) {
 	if t.stats != nil {
-		defer t.stats.Observe(name, time.Now())()
+		defer t.stats.MakeObserver(name, time.Now())()
 	}
 	if t.tracer != nil {
 		ctx = t.tracer.TraceStart(ctx, name)
@@ -82,7 +82,7 @@ func (t *WTx) WExec(ctx context.Context, name string, unprepared string, args ..
 func (t *WTx) WCopyFrom(
 	ctx context.Context, name string, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (n int64, err error) {
 	if t.stats != nil {
-		defer t.stats.Observe(name, time.Now())()
+		defer t.stats.MakeObserver(name, time.Now())()
 	}
 	if t.tracer != nil {
 		ctx = t.tracer.TraceStart(ctx, name)

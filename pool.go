@@ -84,13 +84,9 @@ func (p *Pool) updateMetrics(ctx context.Context) {
 		case <-p.ctx.Done():
 			return
 		}
-		stats := p.pool.Stat()
-		p.stats.ConnPool.WithLabelValues("max_conns").Set(float64(stats.MaxConns()))
-		p.stats.ConnPool.WithLabelValues("total_conns").Set(float64(stats.TotalConns()))
-		p.stats.ConnPool.WithLabelValues("idle_conns").Set(float64(stats.IdleConns()))
-		p.stats.ConnPool.WithLabelValues("acquired_conns").Set(float64(stats.AcquiredConns()))
-		p.stats.ConnPool.WithLabelValues("constructing_conns").Set(
-			float64(stats.ConstructingConns()))
+		if p.stats != nil {
+			p.stats.UpdateConnPoolGauge(p.pool.Stat())
+		}
 	}
 }
 
