@@ -92,7 +92,7 @@ func (t *WTx) WCopyFrom(
 	return
 }
 
-func (t *WTx) CountIntent(ctx context.Context, name string) {
+func (t *WTx) CountIntent(name string) {
 	if t.stats != nil {
 		t.stats.CountIntent(name)
 	}

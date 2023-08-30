@@ -29,5 +29,5 @@ type WGConn interface {
 
 	PostExec(f PostExecFunc) error
 
-	CountIntent(ctx context.Context, name string)
+	CountIntent(name string)
 }

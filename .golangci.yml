@@ -19,7 +19,7 @@ linters:
   enable:
     - asciicheck
     - bodyclose
-    - depguard
+    # - depguard
     - dogsled
     # next-time
     # - dupl

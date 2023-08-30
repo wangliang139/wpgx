@@ -66,7 +66,7 @@ func (c *WConn) WCopyFrom(
 	return
 }
 
-func (c *WConn) CountIntent(ctx context.Context, name string) {
+func (c *WConn) CountIntent(name string) {
 	if c.p.stats != nil {
 		c.p.stats.CountIntent(name)
 	}
