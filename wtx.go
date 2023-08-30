@@ -92,6 +92,12 @@ func (t *WTx) WCopyFrom(
 	return
 }
 
+func (t *WTx) CountIntent(ctx context.Context, name string) {
+	if t.stats != nil {
+		t.stats.CountIntent(name)
+	}
+}
+
 func (t *WTx) Rollback(ctx context.Context) error {
 	return t.tx.Rollback(ctx)
 }

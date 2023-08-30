@@ -28,4 +28,6 @@ type WGConn interface {
 		ctx context.Context, name string, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error)
 
 	PostExec(f PostExecFunc) error
+
+	CountIntent(ctx context.Context, name string)
 }

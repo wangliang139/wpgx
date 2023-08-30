@@ -14,6 +14,7 @@ type metricSet struct {
 	ConnPool *prometheus.GaugeVec
 	Request  *prometheus.CounterVec
 	Latency  *prometheus.HistogramVec
+	Intent   *prometheus.CounterVec
 }
 
 var (
@@ -42,6 +43,11 @@ func newMetricSet(appName string) *metricSet {
 				Help:    "CRUD latency in milliseconds",
 				Buckets: latencyBucket,
 			}, labels),
+		Intent: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: fmt.Sprintf("wpgx_intent_total"),
+				Help: "how many intent queries invoked, should be the sum of cached + hit_db.",
+			}, labels),
 	}
 }
 
@@ -58,12 +64,17 @@ func (m *metricSet) Register() {
 	if err != nil {
 		log.Err(err).Msgf("failed to register Prometheus Latency histogram")
 	}
+	err = prometheus.Register(m.Intent)
+	if err != nil {
+		log.Err(err).Msgf("failed to register Prometheus Intent counters")
+	}
 }
 
 func (m *metricSet) Unregister() {
 	prometheus.Unregister(m.ConnPool)
 	prometheus.Unregister(m.Request)
 	prometheus.Unregister(m.Latency)
+	prometheus.Unregister(m.Intent)
 }
 
 func (s *metricSet) MakeObserver(name string, startedAt time.Time) func() {
@@ -75,6 +86,12 @@ func (s *metricSet) MakeObserver(name string, startedAt time.Time) func() {
 			s.Latency.WithLabelValues(s.AppName, name).Observe(
 				float64(time.Since(startedAt).Milliseconds()))
 		}
+	}
+}
+
+func (s *metricSet) CountIntent(name string) {
+	if s.Intent != nil {
+		s.Intent.WithLabelValues(s.AppName, name).Inc()
 	}
 }
 

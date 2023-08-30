@@ -66,6 +66,12 @@ func (c *WConn) WCopyFrom(
 	return
 }
 
+func (c *WConn) CountIntent(ctx context.Context, name string) {
+	if c.p.stats != nil {
+		c.p.stats.CountIntent(name)
+	}
+}
+
 // pgx did the right thing: prepare should not be visible to a connection pool.
 // func (c *WConn) Prepare(ctx context.Context, query string) (pgconn.StatementDescription, error) {
 // 	return c.conn.Prepare(ctx, query)
