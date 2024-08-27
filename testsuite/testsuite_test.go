@@ -68,6 +68,7 @@ func (m *loaderDumper) Dump() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	results := make([]Doc, 0)
 	for rows.Next() {
 		row := Doc{}
@@ -75,6 +76,7 @@ func (m *loaderDumper) Dump() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		row.CreatedAt = row.CreatedAt.UTC()
 		results = append(results, row)
 	}
 	bytes, err := json.MarshalIndent(results, "", "  ")
@@ -110,7 +112,7 @@ func NewMetaTestSuite() *metaTestSuite {
                id          INT NOT NULL,
                rev         DOUBLE PRECISION NOT NULL,
                content     VARCHAR(200) NOT NULL,
-               created_at  TIMESTAMP NOT NULL,
+               created_at  TIMESTAMPTZ NOT NULL,
                description JSON NOT NULL,
                PRIMARY KEY(id)
              );`,
@@ -152,16 +154,30 @@ func (suite *metaTestSuite) TestInsertQuery() {
 	suite.Equal("hello world", content)
 }
 
+func (suite *metaTestSuite) TestUseWQuerier() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// load state to db from input
+	loader := &loaderDumper{exec: suite.Pool.WConn()}
+	suite.WPgxTestSuite.LoadState("TestQueryUseLoader.docs.json", loader)
+
+	querier, _ := suite.Pool.WQuerierFromReplica(nil)
+	rows, err := querier.WQuery(ctx,
+		"select_all",
+		"SELECT content, rev, created_at, description FROM docs WHERE id = $1", 33)
+	suite.Nil(err)
+	defer rows.Close()
+}
+
 func (suite *metaTestSuite) TestInsertUseGolden() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	tz, err := time.LoadLocation("America/Los_Angeles")
-	suite.Require().NoError(err)
 	exec := suite.Pool.WConn()
 	rst, err := exec.WExec(ctx,
 		"insert_data",
 		"INSERT INTO docs (id, rev, content, created_at, description) VALUES ($1,$2,$3,$4,$5)",
-		33, 666.7777, "hello world", time.Unix(1000, 0).UTC().In(tz), json.RawMessage("{}"))
+		33, 666.7777, "hello world", time.Unix(1000, 0), json.RawMessage("{}"))
 	suite.Nil(err)
 	n := rst.RowsAffected()
 	suite.Equal(int64(1), n)
@@ -205,13 +221,19 @@ func (suite *metaTestSuite) TestQueryUseLoader() {
 	var rev float64
 	var createdAt time.Time
 	var desc json.RawMessage
+	var descObj struct {
+		GithubURL string `json:"github_url"`
+	}
 	suite.True(rows.Next())
 	err = rows.Scan(&content, &rev, &createdAt, &desc)
 	suite.Nil(err)
 	suite.Equal("content read from file", content)
 	suite.Equal(float64(66.66), rev)
 	suite.Equal(int64(1000), createdAt.Unix())
-	suite.Equal(json.RawMessage(`{"github_url":"github.com/stumble/wpgx"}`), desc)
+	suite.Require().Nil(err)
+	err = json.Unmarshal(desc, &descObj)
+	suite.Nil(err)
+	suite.Equal(`github.com/stumble/wpgx`, descObj.GithubURL)
 }
 
 func (suite *metaTestSuite) TestQueryUseLoadTemplate() {
@@ -234,7 +256,7 @@ func (suite *metaTestSuite) TestQueryUseLoadTemplate() {
 		})
 
 	rows, err := exec.WQuery(ctx,
-		"select_all",
+		"select_one",
 		"SELECT content, rev, created_at, description FROM docs WHERE id = $1", 33)
 	suite.Nil(err)
 	defer rows.Close()
@@ -243,13 +265,19 @@ func (suite *metaTestSuite) TestQueryUseLoadTemplate() {
 	var rev float64
 	var createdAt time.Time
 	var desc json.RawMessage
+	var descObj struct {
+		GithubURL string `json:"github_url"`
+	}
 	suite.True(rows.Next())
 	err = rows.Scan(&content, &rev, &createdAt, &desc)
 	suite.Nil(err)
 	suite.Equal("content read from file", content)
 	suite.Equal(float64(66.66), rev)
 	suite.Equal(now.Unix(), createdAt.Unix())
-	suite.Equal(json.RawMessage(`{"github_url":"github.com/stumble/wpgx"}`), desc)
+	suite.Require().Nil(err)
+	err = json.Unmarshal(desc, &descObj)
+	suite.Nil(err)
+	suite.Equal(`github.com/stumble/wpgx`, descObj.GithubURL)
 }
 
 func (suite *metaTestSuite) TestCopyFromUseGolden() {
@@ -257,8 +285,6 @@ func (suite *metaTestSuite) TestCopyFromUseGolden() {
 	defer cancel()
 	exec := suite.Pool.WConn()
 	dumper := &loaderDumper{exec: exec}
-	tz, err := time.LoadLocation("America/Los_Angeles")
-	suite.Require().NoError(err)
 	n, err := exec.WCopyFrom(ctx,
 		"CopyFrom", []string{"docs"},
 		[]string{"id", "rev", "content", "created_at", "description"},
@@ -267,21 +293,21 @@ func (suite *metaTestSuite) TestCopyFromUseGolden() {
 				Id:          1,
 				Rev:         0.1,
 				Content:     "Alice",
-				CreatedAt:   time.Unix(0, 1).UTC().In(tz),
+				CreatedAt:   time.Unix(0, 1),
 				Description: json.RawMessage(`{}`),
 			},
 			{
 				Id:          2,
 				Rev:         0.2,
 				Content:     "Bob",
-				CreatedAt:   time.Unix(100, 0).UTC().In(tz),
+				CreatedAt:   time.Unix(100, 0),
 				Description: json.RawMessage(`[]`),
 			},
 			{
 				Id:          3,
 				Rev:         0.3,
 				Content:     "Chris",
-				CreatedAt:   time.Unix(1000000, 100).UTC().In(tz),
+				CreatedAt:   time.Unix(1000000, 100),
 				Description: json.RawMessage(`{"key":"value"}`),
 			},
 		}})
